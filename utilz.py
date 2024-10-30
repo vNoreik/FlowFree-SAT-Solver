@@ -3,7 +3,7 @@ def gridConversion(fileName):
     endpointCells = {}
     with open(f"{fileName}.txt", 'r') as myFile:
         lines = myFile.readlines()
-        lines = [line.strip() for line in lines]  # Remove newline characters
+        lines = [line.strip() for line in lines] 
         print(lines)
         
         for i in range(len(lines)):
@@ -23,5 +23,17 @@ def gridConversion(fileName):
     
     return newList, endpointCells
 
-x = gridConversion('example')
-print(x)
+
+## getter  Methods for endpointCells
+#  getter method for the coordinate assigned grid
+
+## To-do: implement boundries where if at corners it does not show them.
+def connections( coordinate ):
+    # gives all of the possible connection cells from the given and list them as implications
+    first = coordinate[0]
+    second = coordinate[1]
+    posList = [(first - 1, second), (first + 1, second), (second -1, first), (second +1, first)]
+    return posList
+
+y= connections((1,2))
+print(y)
