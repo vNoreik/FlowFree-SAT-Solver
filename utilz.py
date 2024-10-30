@@ -4,7 +4,6 @@ def gridConversion(fileName):
     with open(f"{fileName}.txt", 'r') as myFile:
         lines = myFile.readlines()
         lines = [line.strip() for line in lines] 
-        print(lines)
         
         for i in range(len(lines)):
             temp_List = []
@@ -23,17 +22,46 @@ def gridConversion(fileName):
     
     return newList, endpointCells
 
-
-## getter  Methods for endpointCells
-#  getter method for the coordinate assigned grid
-
-## To-do: implement boundries where if at corners it does not show them.
-def connections( coordinate ):
-    # gives all of the possible connection cells from the given and list them as implications
-    first = coordinate[0]
-    second = coordinate[1]
-    posList = [(first - 1, second), (first + 1, second), (second -1, first), (second +1, first)]
+def connections(coordinate, grid):
+    posList = []
+    # gives all of the possible connection cells from the given coordinate
+    row = coordinate[0]
+    col = coordinate[1]
+    
+    # Check boundaries and add valid adjacent cells
+    if row > 0:  # Check up
+        posList.append((row - 1, col))
+    if row < len(grid) - 1:  # Check down
+        posList.append((row + 1, col))
+    if col > 0:  # Check left
+        posList.append((row, col - 1))
+    if col < len(grid[0]) - 1:  # Check right
+        posList.append((row, col + 1))
+    
     return posList
 
-y= connections((1,2))
-print(y)
+def gridToOneDimension(grid):
+    oneDList = []
+    for row in grid:
+        for cell in row:
+            oneDList.append(cell)
+    return oneDList
+
+# Example usage:
+try:
+    grid, endpoints = gridConversion("example")
+    print("Grid:", grid)
+    print("Endpoints:", endpoints)
+    
+    # Test connections
+    test_coord = (1, 2)
+    if len(grid) > test_coord[0] and len(grid[0]) > test_coord[1]:
+        connected_cells = connections(test_coord, grid)
+        print(f"Connected cells to {test_coord}:", connected_cells)
+    else:
+        print("Test coordinates out of grid bounds")
+        
+except FileNotFoundError:
+    print("File 'example.txt' not found")
+except Exception as e:
+    print(f"An error occurred: {e}")
