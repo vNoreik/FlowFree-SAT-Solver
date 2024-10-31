@@ -1,116 +1,105 @@
-def gridConversion(fileName):
-    newList = []
-    endpointCells = {}
-    with open(f"{fileName}.txt", 'r') as myFile:
-        lines = myFile.readlines()
-        lines = [line.strip() for line in lines] 
+# flow_free.py
+from bauhaus import Encoding, proposition, constraint, And, Or
+from bauhaus.utils import count_solutions, likelihood
+from nnf import config
+config.sat_backend = "kissat"
+
+@proposition
+class CellConnection:
+    def __init__(self, x1, y1, x2, y2, color):
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
+        self.color = color
+    
+    def __repr__(self):
+        return f"{self.color}: ({self.x1},{self.y1}) -> ({self.x2},{self.y2})"
+
+class FlowFree:
+    def __init__(self, filename):
+        self.E = Encoding()
+        self.grid, self.colors, self.size = self._read_input(filename)
+        self.connections = self._create_propositions()
+    
+    def _read_input(self, filename):
+        grid = []
+        colors = set()
+        with open(filename) as f:
+            for line in f:
+                grid.append(list(line.strip()))
         
-        for i in range(len(lines)):
-            temp_List = []
-            for j in range(len(lines[i])):
-                temp_tuple = (i, j)
-                temp_List.append(temp_tuple)
-
-                if lines[i][j] != '.':  # If the cell is not a dot
-                    # If the key doesn't exist, initialize it with a list
-                    if lines[i][j] not in endpointCells:
-                        endpointCells[lines[i][j]] = []
-                    # Append the tuple (i, j) to the list for that key
-                    endpointCells[lines[i][j]].append((i, j))
-
-            newList.append(temp_List)
-    
-    return newList, endpointCells
-
-def connections(coordinate, grid):
-    posList = []
-    # gives all of the possible connection cells from the given coordinate
-    row = coordinate[0]
-    col = coordinate[1]
-    
-    # Check boundaries and add valid adjacent cells
-    if row > 0:  # Check up
-        posList.append((row - 1, col))
-    if row < len(grid) - 1:  # Check down
-        posList.append((row + 1, col))
-    if col > 0:  # Check left
-        posList.append((row, col - 1))
-    if col < len(grid[0]) - 1:  # Check right
-        posList.append((row, col + 1))
-    
-    return posList
-
-def gridToOneDimension(grid):
-    oneDList = []
-    for row in grid:
-        for cell in row:
-            oneDList.append(cell)
-    return oneDList
-
-def gridCellProperties(cellsList):
-    myDict = {}
-    for i in cellsList:
-        myDict[cellsList] = {}
-    #checks if the coordinate (cell) given has at most one connection.
-
-def check_single_source_constraint(grid):
-    """
-    Ensures that each cell in the grid has only one 'parent' cell, i.e., 
-    it comes from at most one other place of the same color.
-    
-    Parameters:
-    - grid: 2D list representing the puzzle grid where each cell has either 
-      None (no color) or a color identifier.
-      
-    Returns:
-    - A Boolean indicating if the grid satisfies the 'single source' constraint.
-    """
-    for i in range(len(grid)):
-        for j in range(len(grid[0])):
-            color = grid[i][j]
-            if color is not None:  # If cell has a color, check neighbors
-                neighbors = connections((i, j), grid)  # Use connections function
-                sources = [n for n in neighbors if grid[n[0]][n[1]] == color]
-                
-                # Constraint: there should be at most one source
-                if len(sources) > 1:
-                    return False  # Constraint violated
-    return True  # All cells satisfy the constraint
-
-class MyCell:
-    def __init__(self, coordinate, connectedTo, color, endpoint):
-        self.coordinate = coordinate
-        self.connectedTo = connectedTo
-        self.color = color 
-        self.endpoint = endpoint
-    
-
-cell1 = MyCell((1,2), (2,2), "Blue", True)
-print(cell1.coordinate)
-## for each of the new coordinates for the grid 
-
-# Example usage:
-try:
-    grid, endpoints = gridConversion("example")
-    print("Grid:", grid)
-    print("Endpoints:", endpoints)
-    
-    # Test connections
-    test_coord = (1, 2)
-    if len(grid) > test_coord[0] and len(grid[0]) > test_coord[1]:
-        connected_cells = connections(test_coord, grid)
-        print(f"Connected cells to {test_coord}:", connected_cells)
-    else:
-        print("Test coordinates out of grid bounds")
+        for row in grid:
+            for cell in row:
+                if cell != '.':
+                    colors.add(cell)
         
-except FileNotFoundError:
-    print("File 'example.txt' not found")
-except Exception as e:
-    print(f"An error occurred: {e}")
+        return grid, colors, len(grid)
+    
+    def _create_propositions(self):
+        connections = []
+        # Create possible connections between adjacent cells
+        for i in range(self.size):
+            for j in range(self.size):
+                # Horizontal connections
+                if j < self.size - 1:
+                    for color in self.colors:
+                        connections.append(CellConnection(i, j, i, j+1, color))
+                # Vertical connections
+                if i < self.size - 1:
+                    for color in self.colors:
+                        connections.append(CellConnection(i, j, i+1, j, color))
+        return connections
 
+    def encode(self):
+def encode(self):
+    # Add constraints here
+    # 1. Each cell must be used exactly once
+    for i in range(self.size):
+        for j in range(self.size):
+            self.E.add_constraint(ExactlyOne([conn for conn in self.connections if conn.x1 == i and conn.y1 == j or conn.x2 == i and conn.y2 == j]))
 
-    # create a logical encoding of the problem setting, and use a SAT solver to have a solution computed. 
-    # Create a logicl theory, with propositions / constraints.
-    # use bahuaus  
+    # 2. Each colored endpoint must connect to exactly one neighbor
+    for color in self.colors:
+        for i in range(self.size):
+            for j in range(self.size):
+                if self.grid[i][j] == color:
+                    self.E.add_constraint(ExactlyOne([conn for conn in self.connections if (conn.x1 == i and conn.y1 == j) or (conn.x2 == i and conn.y2 == j)]))
 
-    # prompt given profs work so far
+    # 3. Each intermediate cell must connect to exactly two neighbors
+    for i in range(self.size):
+        for j in range(self.size):
+            if self.grid[i][j] == '.':
+                self.E.add_constraint(ExactlyTwo([conn for conn in self.connections if (conn.x1 == i and conn.y1 == j) or (conn.x2 == i and conn.y2 == j)]))
+
+    # 4. Paths must be continuous
+    for conn in self.connections:
+        self.E.add_constraint(Implies(conn.active, And(
+            Or([other_conn.active for other_conn in self.connections if (other_conn.x1 == conn.x2 and other_conn.y1 == conn.y2) or (other_conn.x2 == conn.x2 and other_conn.y2 == conn.y2)]),
+            Or([other_conn.active for other_conn in self.connections if (other_conn.x1 == conn.x1 and other_conn.y1 == conn.y1) or (other_conn.x2 == conn.x1 and other_conn.y2 == conn.y1)])
+        )))
+
+    # 5. Paths cannot cross
+    for conn1 in self.connections:
+        for conn2 in self.connections:
+            if conn1 != conn2:
+                self.E.add_constraint(Not(And(conn1.active, conn2.active, conn1.x1 == conn2.x1, conn1.y1 == conn2.y1, conn1.x2 == conn2.x2, conn1.y2 == conn2.y2)))
+        pass
+
+    def solve(self):
+        theory = self.E.compile()
+        solution = theory.solve()
+        if solution:
+            return self._extract_paths(solution)
+        return None
+
+    def _extract_paths(self, solution):
+        # Extract and format paths from the solution
+        paths = {}
+        for conn in solution:
+            if solution[conn]:
+                color = conn.color
+                if color not in paths:
+                    paths[color] = []
+                paths[color].append((conn.x1, conn.y1, conn.x2, conn.y2))
+        return paths
