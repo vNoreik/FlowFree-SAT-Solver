@@ -3,9 +3,10 @@ from bauhaus.utils import count_solutions, likelihood
 from nnf import config
 config.sat_backend = "kissat"
 
-@proposition
+@proposition(name='CellConnection')
 class CellConnection:
-    def __init__(self, x1, y1, x2, y2, color):
+    def __init__(self, x1=None, y1=None, x2=None, y2=None, color=None):
+        # Initialize with default None values
         self.x1 = x1
         self.y1 = y1
         self.x2 = x2
@@ -14,6 +15,18 @@ class CellConnection:
     
     def __repr__(self):
         return f"{self.color}: ({self.x1},{self.y1}) -> ({self.x2},{self.y2})"
+
+    def __hash__(self):
+        return hash((self.x1, self.y1, self.x2, self.y2, self.color))
+
+    def __eq__(self, other):
+        if not isinstance(other, CellConnection):
+            return False
+        return (self.x1 == other.x1 and 
+                self.y1 == other.y1 and 
+                self.x2 == other.x2 and 
+                self.y2 == other.y2 and 
+                self.color == other.color)
 
 class FlowFree:
     def __init__(self, filename):
@@ -43,11 +56,23 @@ class FlowFree:
                 # Horizontal connections
                 if j < self.size - 1:
                     for color in self.colors:
-                        connections.append(CellConnection(i, j, i, j+1, color))
+                        conn = CellConnection()
+                        conn.x1 = i
+                        conn.y1 = j
+                        conn.x2 = i
+                        conn.y2 = j+1
+                        conn.color = color
+                        connections.append(conn)
                 # Vertical connections
                 if i < self.size - 1:
                     for color in self.colors:
-                        connections.append(CellConnection(i, j, i+1, j, color))
+                        conn = CellConnection()
+                        conn.x1 = i
+                        conn.y1 = j
+                        conn.x2 = i+1
+                        conn.y2 = j
+                        conn.color = color
+                        connections.append(conn)
         return connections
 
 def encode(self):
