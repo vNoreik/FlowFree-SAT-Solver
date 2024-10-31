@@ -47,6 +47,25 @@ def gridToOneDimension(grid):
             oneDList.append(cell)
     return oneDList
 
+def gridCellProperties(cellsList):
+    myDict = {}
+    for i in cellsList:
+        myDict[cellsList] = {}
+    #checks if the coordinate (cell) given has at most one connection.
+
+
+class MyCell:
+    def __init__(self, coordinate, connectedTo, color, endpoint):
+        self.coordinate = coordinate
+        self.connectedTo = connectedTo
+        self.color = color 
+        self.endpoint = endpoint
+    
+
+cell1 = MyCell((1,2), (2,2), "Blue", True)
+print(cell1.coordinate)
+## for each of the new coordinates for the grid 
+
 # Example usage:
 try:
     grid, endpoints = gridConversion("example")
