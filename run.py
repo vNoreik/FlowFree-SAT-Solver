@@ -1,85 +1,109 @@
+def gridConversion(fileName):
+    newList = []
+    endpointCells = {}
+    with open(f"{fileName}.txt", 'r') as myFile:
+        lines = myFile.readlines()
+        lines = [line.strip() for line in lines] 
+        
+        for i in range(len(lines)):
+            temp_List = []
+            for j in range(len(lines[i])):
+                temp_tuple = (i, j)
+                temp_List.append(temp_tuple)
 
-from bauhaus import Encoding, proposition, constraint
-from bauhaus.utils import count_solutions, likelihood
+                if lines[i][j] != '.':  # If the cell is not a dot
+                    # If the key doesn't exist, initialize it with a list
+                    if lines[i][j] not in endpointCells:
+                        endpointCells[lines[i][j]] = []
+                    # Append the tuple (i, j) to the list for that key
+                    endpointCells[lines[i][j]].append((i, j))
 
-# These two lines make sure a faster SAT solver is used.
-from nnf import config
-config.sat_backend = "kissat"
+            newList.append(temp_List)
+    
+    return newList, endpointCells
 
-# Encoding that will store all of your constraints
-E = Encoding()
+def connections(coordinate, grid):
+    posList = []
+    # gives all of the possible connection cells from the given coordinate
+    row = coordinate[0]
+    col = coordinate[1]
+    
+    # Check boundaries and add valid adjacent cells
+    if row > 0:  # Check up
+        posList.append((row - 1, col))
+    if row < len(grid) - 1:  # Check down
+        posList.append((row + 1, col))
+    if col > 0:  # Check left
+        posList.append((row, col - 1))
+    if col < len(grid[0]) - 1:  # Check right
+        posList.append((row, col + 1))
+    
+    return posList
 
-# To create propositions, create classes for them first, annotated with "@proposition" and the Encoding
-@proposition(E)
-class BasicPropositions:
+def gridToOneDimension(grid):
+    oneDList = []
+    for row in grid:
+        for cell in row:
+            oneDList.append(cell)
+    return oneDList
 
-    def __init__(self, data):
-        self.data = data
+def gridCellProperties(cellsList):
+    myDict = {}
+    for i in cellsList:
+        myDict[cellsList] = {}
+    #checks if the coordinate (cell) given has at most one connection.
 
-    def _prop_name(self):
-        return f"A.{self.data}"
+def check_single_source_constraint(grid):
+    """
+    Ensures that each cell in the grid has only one 'parent' cell, i.e., 
+    it comes from at most one other place of the same color.
+    
+    Parameters:
+    - grid: 2D list representing the puzzle grid where each cell has either 
+      None (no color) or a color identifier.
+      
+    Returns:
+    - A Boolean indicating if the grid satisfies the 'single source' constraint.
+    """
+    for i in range(len(grid)):
+        for j in range(len(grid[0])):
+            color = grid[i][j]
+            if color is not None:  # If cell has a color, check neighbors
+                neighbors = connections((i, j), grid)  # Use connections function
+                sources = [n for n in neighbors if grid[n[0]][n[1]] == color]
+                
+                # Constraint: there should be at most one source
+                if len(sources) > 1:
+                    return False  # Constraint violated
+    return True  # All cells satisfy the constraint
 
+class MyCell:
+    def __init__(self, coordinate, connectedTo, color, endpoint):
+        self.coordinate = coordinate
+        self.connectedTo = connectedTo
+        self.color = color 
+        self.endpoint = endpoint
+    
 
-# Different classes for propositions are useful because this allows for more dynamic constraint creation
-# for propositions within that class. For example, you can enforce that "at least one" of the propositions
-# that are instances of this class must be true by using a @constraint decorator.
-# other options include: at most one, exactly one, at most k, and implies all.
-# For a complete module reference, see https://bauhaus.readthedocs.io/en/latest/bauhaus.html
-@constraint.at_least_one(E)
-@proposition(E)
-class FancyPropositions:
+cell1 = MyCell((1,2), (2,2), "Blue", True)
+print(cell1.coordinate)
+## for each of the new coordinates for the grid 
 
-    def __init__(self, data):
-        self.data = data
-
-    def _prop_name(self):
-        return f"A.{self.data}"
-
-# Call your variables whatever you want
-a = BasicPropositions("a")
-b = BasicPropositions("b")   
-c = BasicPropositions("c")
-d = BasicPropositions("d")
-e = BasicPropositions("e")
-# At least one of these will be true
-x = FancyPropositions("x")
-y = FancyPropositions("y")
-z = FancyPropositions("z")
-
-
-# Build an example full theory for your setting and return it.
-#
-#  There should be at least 10 variables, and a sufficiently large formula to describe it (>50 operators).
-#  This restriction is fairly minimal, and if there is any concern, reach out to the teaching staff to clarify
-#  what the expectations are.
-def example_theory():
-    # Add custom constraints by creating formulas with the variables you created. 
-    E.add_constraint((a | b) & ~x)
-    # Implication
-    E.add_constraint(y >> z)
-    # Negate a formula
-    E.add_constraint(~(x & y))
-    # You can also add more customized "fancy" constraints. Use case: you don't want to enforce "exactly one"
-    # for every instance of BasicPropositions, but you want to enforce it for a, b, and c.:
-    constraint.add_exactly_one(E, a, b, c)
-
-    return E
-
-
-if __name__ == "__main__":
-
-    T = example_theory()
-    # Don't compile until you're finished adding all your constraints!
-    T = T.compile()
-    # After compilation (and only after), you can check some of the properties
-    # of your model:
-    print("\nSatisfiable: %s" % T.satisfiable())
-    print("# Solutions: %d" % count_solutions(T))
-    print("   Solution: %s" % T.solve())
-
-    print("\nVariable likelihoods:")
-    for v,vn in zip([a,b,c,x,y,z], 'abcxyz'):
-        # Ensure that you only send these functions NNF formulas
-        # Literals are compiled to NNF here
-        print(" %s: %.2f" % (vn, likelihood(T, v)))
-    print()
+# Example usage:
+try:
+    grid, endpoints = gridConversion("example")
+    print("Grid:", grid)
+    print("Endpoints:", endpoints)
+    
+    # Test connections
+    test_coord = (1, 2)
+    if len(grid) > test_coord[0] and len(grid[0]) > test_coord[1]:
+        connected_cells = connections(test_coord, grid)
+        print(f"Connected cells to {test_coord}:", connected_cells)
+    else:
+        print("Test coordinates out of grid bounds")
+        
+except FileNotFoundError:
+    print("File 'example.txt' not found")
+except Exception as e:
+    print(f"An error occurred: {e}")
