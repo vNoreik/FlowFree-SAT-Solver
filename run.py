@@ -107,3 +107,10 @@ except FileNotFoundError:
     print("File 'example.txt' not found")
 except Exception as e:
     print(f"An error occurred: {e}")
+
+
+    # create a logical encoding of the problem setting, and use a SAT solver to have a solution computed. 
+    # Create a logicl theory, with propositions / constraints.
+    # use bahuaus  
+
+    # prompt given profs work so far
