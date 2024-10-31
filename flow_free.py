@@ -1,4 +1,4 @@
-from bauhaus import Encoding, proposition, constraint, And, Or, Not
+from bauhaus import Encoding, proposition, constraint, And, Or, Not, Implies, ExactlyOne, ExactlyTwo
 from bauhaus.utils import count_solutions, likelihood
 from nnf import config
 config.sat_backend = "kissat"
@@ -126,7 +126,8 @@ class FlowFree:
                                     self.E.add_constraint(Not(And(c1.active, c2.active)))
 
     def solve(self):
-        theory = self.encode()
+        self.encode()
+        theory = self.E.compile()
         solution = theory.solve()
         if solution:
             active_conns = [conn for conn in self.connections if solution[conn]]
