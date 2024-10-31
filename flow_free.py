@@ -1,4 +1,4 @@
-from bauhaus import Encoding, proposition, constraint, And, Or, Not, Implies, ExactlyOne, ExactlyTwo
+from bauhaus import Encoding, proposition, constraint, And, Or, Implies, ExactlyOne, ExactlyTwo
 from bauhaus.utils import count_solutions, likelihood
 from nnf import config
 config.sat_backend = "kissat"
@@ -90,7 +90,7 @@ class FlowFree:
                             if conn.color == color and 
                             ((conn.x1 == i and conn.y1 == j) or (conn.x2 == i and conn.y2 == j))]
                         self.E.add_constraint(Or(
-                            And([Not(conn.active) for conn in connected_cells]),
+                            And([~(conn.active) for conn in connected_cells]),
                             ExactlyTwo(connected_cells)
                         ))
 
@@ -123,7 +123,7 @@ class FlowFree:
                                 ((conn.x1 == i and conn.y1 == j) or (conn.x2 == i and conn.y2 == j))]
                             for c1 in conns1:
                                 for c2 in conns2:
-                                    self.E.add_constraint(Not(And(c1.active, c2.active)))
+                                    self.E.add_constraint(~(And(c1.active, c2.active)))
 
     def solve(self):
         self.encode()
