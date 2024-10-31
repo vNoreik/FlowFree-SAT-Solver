@@ -1,4 +1,3 @@
-# flow_free.py
 from bauhaus import Encoding, proposition, constraint, And, Or
 from bauhaus.utils import count_solutions, likelihood
 from nnf import config
@@ -112,20 +111,18 @@ def encode(self):
                             for c2 in conns2:
                                 self.E.add_constraint(Not(And(c1.active, c2.active)))
 
-    def solve(self):
-        theory = self.E.compile()
-        solution = theory.solve()
-        if solution:
-            return self._extract_paths(solution)
-        return None
+def solve(self):
+    theory = self.encode()
+    solution = theory.solve()
+    if solution:
+        active_conns = [conn for conn in self.connections if solution[conn]]
+        return self._format_solution(active_conns)
+    return None
 
-    def _extract_paths(self, solution):
-        # Extract and format paths from the solution
-        paths = {}
-        for conn in solution:
-            if solution[conn]:
-                color = conn.color
-                if color not in paths:
-                    paths[color] = []
-                paths[color].append((conn.x1, conn.y1, conn.x2, conn.y2))
-        return paths
+def _format_solution(self, active_connections):
+    paths = {}
+    for conn in active_connections:
+        if conn.color not in paths:
+            paths[conn.color] = []
+        paths[conn.color].append((conn.x1, conn.y1, conn.x2, conn.y2))
+    return paths
