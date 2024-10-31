@@ -53,6 +53,29 @@ def gridCellProperties(cellsList):
         myDict[cellsList] = {}
     #checks if the coordinate (cell) given has at most one connection.
 
+def check_single_source_constraint(grid):
+    """
+    Ensures that each cell in the grid has only one 'parent' cell, i.e., 
+    it comes from at most one other place of the same color.
+    
+    Parameters:
+    - grid: 2D list representing the puzzle grid where each cell has either 
+      None (no color) or a color identifier.
+      
+    Returns:
+    - A Boolean indicating if the grid satisfies the 'single source' constraint.
+    """
+    for i in range(len(grid)):
+        for j in range(len(grid[0])):
+            color = grid[i][j]
+            if color is not None:  # If cell has a color, check neighbors
+                neighbors = connections((i, j), grid)  # Use connections function
+                sources = [n for n in neighbors if grid[n[0]][n[1]] == color]
+                
+                # Constraint: there should be at most one source
+                if len(sources) > 1:
+                    return False  # Constraint violated
+    return True  # All cells satisfy the constraint
 
 class MyCell:
     def __init__(self, coordinate, connectedTo, color, endpoint):
