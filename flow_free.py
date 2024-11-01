@@ -91,6 +91,8 @@ class FlowFree:
         return endpoints
 
     def encode(self):
+        # CONSTRAINTS:
+
         # 1. Each cell must be used exactly once
 
         # 2. Colored endpoints must connect to exactly one neighbor
