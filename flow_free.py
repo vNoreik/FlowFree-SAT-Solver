@@ -3,7 +3,10 @@ from bauhaus.utils import count_solutions, likelihood
 from nnf import config
 config.sat_backend = "kissat"
 
-@proposition
+# Create global encoding to be used
+E = Encoding()
+
+@proposition(E)
 class CellConnection:
     def __init__(self, x1, y1, x2, y2, color):
         self.x1 = x1
@@ -17,7 +20,7 @@ class CellConnection:
 
 class FlowFree:
     def __init__(self, filename):
-        self.E = Encoding()
+        self.E = E  # Use the global encoding
         self.grid, self.colors, self.size = self._read_input(filename)
         self.connections = self._create_propositions()
         self.color_endpoints = self._find_endpoints()
