@@ -1,11 +1,11 @@
-from bauhaus import Encoding, proposition, constraint, And, Or, Implies, ExactlyOne, ExactlyTwo
+from bauhaus import Encoding, proposition, constraint, And, Or
 from bauhaus.utils import count_solutions, likelihood
 from nnf import config
 config.sat_backend = "kissat"
 
 @proposition
 class CellConnection:
-    def __init__(self, x1=None, y1=None, x2=None, y2=None, color=None):
+    def __init__(self, x1, y1, x2, y2, color):
         self.x1 = x1
         self.y1 = y1
         self.x2 = x2
@@ -15,23 +15,12 @@ class CellConnection:
     def __repr__(self):
         return f"{self.color}: ({self.x1},{self.y1}) -> ({self.x2},{self.y2})"
 
-    def __hash__(self):
-        return hash((self.x1, self.y1, self.x2, self.y2, self.color))
-
-    def __eq__(self, other):
-        if not isinstance(other, CellConnection):
-            return False
-        return (self.x1 == other.x1 and 
-                self.y1 == other.y1 and 
-                self.x2 == other.x2 and 
-                self.y2 == other.y2 and 
-                self.color == other.color)
-
 class FlowFree:
     def __init__(self, filename):
         self.E = Encoding()
         self.grid, self.colors, self.size = self._read_input(filename)
         self.connections = self._create_propositions()
+        self.color_endpoints = self._find_endpoints()
     
     def _read_input(self, filename):
         grid = []
@@ -47,6 +36,16 @@ class FlowFree:
         
         return grid, colors, len(grid)
     
+    def _find_endpoints(self):
+        endpoints = {}
+        for color in self.colors:
+            endpoints[color] = []
+            for i in range(self.size):
+                for j in range(self.size):
+                    if self.grid[i][j] == color:
+                        endpoints[color].append((i, j))
+        return endpoints
+
     def _create_propositions(self):
         connections = []
         # Create possible connections between adjacent cells
@@ -55,89 +54,97 @@ class FlowFree:
                 # Horizontal connections
                 if j < self.size - 1:
                     for color in self.colors:
-                        conn = CellConnection(i, j, i, j+1, color)
-                        connections.append(conn)
+                        connections.append(CellConnection(i, j, i, j+1, color))
+                        connections.append(CellConnection(i, j+1, i, j, color))
                 # Vertical connections
                 if i < self.size - 1:
                     for color in self.colors:
-                        conn = CellConnection(i, j, i+1, j, color)
-                        connections.append(conn)
+                        connections.append(CellConnection(i, j, i+1, j, color))
+                        connections.append(CellConnection(i+1, j, i, j, color))
         return connections
+
+    def _get_connections_for_cell(self, x, y):
+        return [conn for conn in self.connections 
+                if (conn.x1 == x and conn.y1 == y) or (conn.x2 == x and conn.y2 == y)]
 
     def encode(self):
         # 1. Each cell must be used exactly once
         for i in range(self.size):
             for j in range(self.size):
-                self.E.add_constraint(ExactlyOne([conn for conn in self.connections 
-                    if (conn.x1 == i and conn.y1 == j) or (conn.x2 == i and conn.y2 == j)]))
+                cell_connections = self._get_connections_for_cell(i, j)
+                constraint.add_exactly_one(self.E, cell_connections)
 
-        # 2. Each colored endpoint connects to one matching-color neighbor
+        # 2. Colored endpoints must connect to exactly one neighbor
+        for color, endpoints in self.color_endpoints.items():
+            for x, y in endpoints:
+                # Get all possible connections for this endpoint of this color
+                endpoint_connections = [conn for conn in self._get_connections_for_cell(x, y)
+                                     if conn.color == color]
+                constraint.add_exactly_one(self.E, endpoint_connections)
+                
+                # Forbid connections of other colors
+                other_color_connections = [conn for conn in self._get_connections_for_cell(x, y)
+                                        if conn.color != color]
+                for conn in other_color_connections:
+                    self.E.add_constraint(~conn)
+
+        # 3. Non-endpoint cells must connect to exactly two neighbors
         for i in range(self.size):
             for j in range(self.size):
-                if self.grid[i][j] != '.':
-                    color = self.grid[i][j]
-                    self.E.add_constraint(ExactlyOne([conn for conn in self.connections 
-                        if conn.color == color and 
-                        ((conn.x1 == i and conn.y1 == j) or (conn.x2 == i and conn.y2 == j))]))
-
-        # 3. Intermediate cells connect to exactly two cells of same color
-        for i in range(self.size):
-            for j in range(self.size):
-                if self.grid[i][j] == '.':
+                if self.grid[i][j] == '.':  # Non-endpoint cell
+                    cell_connections = self._get_connections_for_cell(i, j)
+                    # Group connections by color
                     for color in self.colors:
-                        # For each color, either 0 or 2 connections
-                        connected_cells = [conn for conn in self.connections 
-                            if conn.color == color and 
-                            ((conn.x1 == i and conn.y1 == j) or (conn.x2 == i and conn.y2 == j))]
-                        self.E.add_constraint(Or(
-                            And([~(conn.active) for conn in connected_cells]),
-                            ExactlyTwo(connected_cells)
-                        ))
+                        color_connections = [conn for conn in cell_connections 
+                                          if conn.color == color]
+                        # If this cell is used by this color, it must have exactly two connections
+                        if color_connections:
+                            constraint.add_exactly_k(self.E, color_connections, 2)
 
-        # 4. Path continuity with color matching
-        for conn in self.connections:
-            color = conn.color
-            # If connection is active, ensure continuation at both ends
-            self.E.add_constraint(Implies(conn.active, And(
-                Or([other.active for other in self.connections 
-                    if other != conn and other.color == color and
-                    ((other.x1 == conn.x2 and other.y1 == conn.y2) or 
-                     (other.x2 == conn.x2 and other.y2 == conn.y2))]),
-                Or([other.active for other in self.connections 
-                    if other != conn and other.color == color and
-                    ((other.x1 == conn.x1 and other.y1 == conn.y1) or 
-                     (other.x2 == conn.x1 and other.y2 == conn.y1))])
-            )))
+        # 4. Paths must be continuous
+        for color in self.colors:
+            start, end = self.color_endpoints[color]
+            # For each intermediate cell
+            for i in range(self.size):
+                for j in range(self.size):
+                    if (i,j) != start and (i,j) != end:
+                        incoming = [conn for conn in self.connections 
+                                  if conn.color == color and (conn.x2,conn.y2) == (i,j)]
+                        outgoing = [conn for conn in self.connections 
+                                  if conn.color == color and (conn.x1,conn.y1) == (i,j)]
+                        
+                        # If there's an incoming connection, there must be an outgoing one
+                        for inc in incoming:
+                            self.E.add_constraint(inc >> Or(outgoing))
 
-        # 5. No shared cells between different colors
+        # 5. Paths cannot cross
         for i in range(self.size):
             for j in range(self.size):
+                # For each cell, ensure only one color can use it
                 for color1 in self.colors:
                     for color2 in self.colors:
-                        if color1 != color2:
-                            conns1 = [conn for conn in self.connections 
-                                if conn.color == color1 and 
-                                ((conn.x1 == i and conn.y1 == j) or (conn.x2 == i and conn.y2 == j))]
-                            conns2 = [conn for conn in self.connections 
-                                if conn.color == color2 and 
-                                ((conn.x1 == i and conn.y1 == j) or (conn.x2 == i and conn.y2 == j))]
-                            for c1 in conns1:
-                                for c2 in conns2:
-                                    self.E.add_constraint(~(And(c1.active, c2.active)))
+                        if color1 < color2:  # Avoid duplicate constraints
+                            color1_conns = [conn for conn in self._get_connections_for_cell(i, j)
+                                          if conn.color == color1]
+                            color2_conns = [conn for conn in self._get_connections_for_cell(i, j)
+                                          if conn.color == color2]
+                            for c1 in color1_conns:
+                                for c2 in color2_conns:
+                                    self.E.add_constraint(~(c1 & c2))
 
     def solve(self):
-        self.encode()
         theory = self.E.compile()
         solution = theory.solve()
         if solution:
-            active_conns = [conn for conn in self.connections if solution[conn]]
-            return self._format_solution(active_conns)
+            return self._extract_paths(solution)
         return None
 
-    def _format_solution(self, active_connections):
+    def _extract_paths(self, solution):
         paths = {}
-        for conn in active_connections:
-            if conn.color not in paths:
-                paths[conn.color] = []
-            paths[conn.color].append((conn.x1, conn.y1, conn.x2, conn.y2))
+        for conn in self.connections:
+            if solution[conn]:
+                color = conn.color
+                if color not in paths:
+                    paths[color] = []
+                paths[color].append((conn.x1, conn.y1, conn.x2, conn.y2))
         return paths
